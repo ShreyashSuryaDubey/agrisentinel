@@ -1,0 +1,45 @@
+import { Button } from "@/components/ui/button";
+import { Sprout, MessageCircle, History, User, Home } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+
+const Navigation = () => {
+  const location = useLocation();
+
+  const navItems = [
+    { to: "/", icon: <Home className="h-4 w-4" />, label: "Home" },
+    { to: "/ask", icon: <MessageCircle className="h-4 w-4" />, label: "Ask Question" },
+    { to: "/history", icon: <History className="h-4 w-4" />, label: "My Queries" },
+    { to: "/profile", icon: <User className="h-4 w-4" />, label: "Profile" },
+  ];
+
+  return (
+    <nav className="bg-background/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          <Link to="/" className="flex items-center gap-2 text-primary font-bold text-xl">
+            <Sprout className="h-6 w-6" />
+            AI Farm Assistant
+          </Link>
+
+          <div className="flex items-center gap-2">
+            {navItems.map((item) => (
+              <Button
+                key={item.to}
+                asChild
+                variant={location.pathname === item.to ? "default" : "ghost"}
+                size="sm"
+              >
+                <Link to={item.to} className="flex items-center gap-2">
+                  {item.icon}
+                  <span className="hidden sm:inline">{item.label}</span>
+                </Link>
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default Navigation;

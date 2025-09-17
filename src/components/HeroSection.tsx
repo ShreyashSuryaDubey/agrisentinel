@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sprout, MessageCircle, Brain, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-agriculture.jpg";
 
 const HeroSection = () => {
@@ -32,9 +33,11 @@ const HeroSection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Button size="lg" className="bg-gradient-primary hover:opacity-90 shadow-natural">
-              <MessageCircle className="mr-2 h-5 w-5" />
-              Ask a Question
+            <Button size="lg" className="bg-gradient-primary hover:opacity-90 shadow-natural" asChild>
+              <Link to="/ask">
+                <MessageCircle className="mr-2 h-5 w-5" />
+                Ask a Question
+              </Link>
             </Button>
             <Button variant="outline" size="lg" className="border-primary text-primary hover:bg-primary/10">
               Learn More
