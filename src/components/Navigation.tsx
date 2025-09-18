@@ -1,9 +1,28 @@
-import { Button } from "@/components/ui/button";
-import { Sprout, MessageCircle, History, User, Home } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Sprout, MessageCircle, History, User, Home, LogOut } from "lucide-react";
 
 const Navigation = () => {
   const location = useLocation();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Signed out",
+        description: "You've been signed out successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const navItems = [
     { to: "/", icon: <Home className="h-4 w-4" />, label: "Home" },
@@ -35,6 +54,10 @@ const Navigation = () => {
                 </Link>
               </Button>
             ))}
+            <Button variant="ghost" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground ml-2">
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline ml-2">Sign Out</span>
+            </Button>
           </div>
         </div>
       </div>

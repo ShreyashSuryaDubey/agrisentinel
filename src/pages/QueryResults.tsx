@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, ArrowLeft, Share2, Copy, MessageCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface QueryData {
   id: string;
   question: string;
   category: string;
-  cropType: string;
+  crop_type: string | null;
   response: string;
-  timestamp: string;
+  created_at: string;
   status: string;
 }
 
@@ -23,9 +24,25 @@ const QueryResults = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const queries = JSON.parse(localStorage.getItem("farmerQueries") || "[]");
-    const query = queries.find((q: QueryData) => q.id === id);
-    setQueryData(query || null);
+    const fetchQuery = async () => {
+      if (!id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('farmer_queries')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+        setQueryData(data);
+      } catch (error: any) {
+        console.error('Error fetching query:', error);
+        setQueryData(null);
+      }
+    };
+
+    fetchQuery();
   }, [id]);
 
   const handleCopyResponse = () => {
@@ -100,14 +117,14 @@ const QueryResults = () => {
                 <Badge variant="outline" className="border-primary/30 text-primary">
                   {queryData.category}
                 </Badge>
-                {queryData.cropType && (
+                {queryData.crop_type && (
                   <Badge variant="outline" className="border-accent/30 text-accent">
-                    {queryData.cropType}
+                    {queryData.crop_type}
                   </Badge>
                 )}
                 <span className="text-sm text-muted-foreground">
-                  {new Date(queryData.timestamp).toLocaleDateString()} at{" "}
-                  {new Date(queryData.timestamp).toLocaleTimeString()}
+                  {new Date(queryData.created_at).toLocaleDateString()} at{" "}
+                  {new Date(queryData.created_at).toLocaleTimeString()}
                 </span>
               </div>
             </CardHeader>

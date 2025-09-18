@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Send, Wheat, Bug, Droplets, Sun, Leaf, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const AskQuestion = () => {
@@ -31,35 +32,48 @@ const AskQuestion = () => {
 
     setIsSubmitting(true);
 
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
 
-    // Create mock response and store in localStorage
-    const mockResponse = generateMockResponse(query, category, cropType);
-    const queryData = {
-      id: Date.now().toString(),
-      question: query,
-      category: category || "General",
-      cropType: cropType || "General",
-      response: mockResponse,
-      timestamp: new Date().toISOString(),
-      status: "resolved"
-    };
+      // Generate AI response (mock implementation)
+      const response = generateMockResponse(query, category, cropType);
 
-    // Store in localStorage
-    const existingQueries = JSON.parse(localStorage.getItem("farmerQueries") || "[]");
-    existingQueries.unshift(queryData);
-    localStorage.setItem("farmerQueries", JSON.stringify(existingQueries));
+      const { data, error } = await supabase
+        .from('farmer_queries')
+        .insert([
+          {
+            user_id: user.id,
+            question: query.trim(),
+            category: category || "General",
+            crop_type: cropType || null,
+            response,
+            status: 'completed'
+          }
+        ])
+        .select()
+        .single();
 
-    toast({
-      title: "Response Generated!",
-      description: "Your AI response is ready. Redirecting...",
-    });
+      if (error) throw error;
 
-    // Redirect to results page
-    setTimeout(() => {
-      navigate(`/results/${queryData.id}`);
-    }, 1000);
+      toast({
+        title: "Response Generated!",
+        description: "Your AI response is ready. Redirecting...",
+      });
+
+      // Redirect to results page
+      setTimeout(() => {
+        navigate(`/results/${data.id}`);
+      }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const generateMockResponse = (question: string, category: string, crop: string) => {

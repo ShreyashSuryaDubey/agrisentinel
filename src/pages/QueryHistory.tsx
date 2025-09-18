@@ -7,15 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Search, MessageCircle, Calendar, Filter, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface QueryData {
   id: string;
   question: string;
   category: string;
-  cropType: string;
+  crop_type: string | null;
   response: string;
-  timestamp: string;
+  created_at: string;
   status: string;
 }
 
@@ -34,9 +35,19 @@ const QueryHistory = () => {
     filterQueries();
   }, [queries, searchTerm, filterCategory]);
 
-  const loadQueries = () => {
-    const savedQueries = JSON.parse(localStorage.getItem("farmerQueries") || "[]");
-    setQueries(savedQueries);
+  const loadQueries = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('farmer_queries')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setQueries(data || []);
+    } catch (error: any) {
+      console.error('Error loading queries:', error);
+      setQueries([]);
+    }
   };
 
   const filterQueries = () => {
@@ -56,53 +67,59 @@ const QueryHistory = () => {
     setFilteredQueries(filtered);
   };
 
-  const deleteQuery = (id: string) => {
-    const updatedQueries = queries.filter(query => query.id !== id);
-    setQueries(updatedQueries);
-    localStorage.setItem("farmerQueries", JSON.stringify(updatedQueries));
-    toast({
-      title: "Query Deleted",
-      description: "The query has been removed from your history.",
-    });
-  };
+  const deleteQuery = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('farmer_queries')
+        .delete()
+        .eq('id', id);
 
-  const clearAllQueries = () => {
-    setQueries([]);
-    localStorage.removeItem("farmerQueries");
-    toast({
-      title: "History Cleared",
-      description: "All queries have been removed from your history.",
-    });
-  };
+      if (error) throw error;
 
-  // Add some sample queries if none exist
-  useEffect(() => {
-    const savedQueries = JSON.parse(localStorage.getItem("farmerQueries") || "[]");
-    if (savedQueries.length === 0) {
-      const sampleQueries = [
-        {
-          id: "sample1",
-          question: "How do I control aphids on my tomato plants naturally?",
-          category: "Pest Control",
-          cropType: "Tomatoes",
-          response: "For natural aphid control on tomatoes: 1) Spray with neem oil solution (2-3ml per liter) in early morning, 2) Introduce beneficial insects like ladybugs and lacewings, 3) Use reflective mulch to confuse aphids, 4) Apply soapy water spray (5ml dish soap per liter), 5) Plant companion crops like marigolds and nasturtiums to repel aphids naturally. Monitor plants weekly and act quickly when aphids are first spotted.",
-          timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          status: "resolved"
-        },
-        {
-          id: "sample2",
-          question: "What's the best irrigation schedule for wheat during flowering?",
-          category: "Irrigation",
-          cropType: "Wheat",
-          response: "During wheat flowering stage, maintain consistent soil moisture: 1) Irrigate every 7-10 days with 25-30mm water, 2) Monitor soil moisture at 15-20cm depth, 3) Water when soil reaches 50-60% field capacity, 4) Avoid water stress during anthesis (10-15 days post-flowering) as it affects grain formation, 5) Use early morning irrigation (5-8 AM) to reduce evaporation. Critical period is from booting to grain filling stage.",
-          timestamp: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-          status: "resolved"
-        }
-      ];
-      localStorage.setItem("farmerQueries", JSON.stringify(sampleQueries));
-      setQueries(sampleQueries);
+      const updatedQueries = queries.filter(query => query.id !== id);
+      setQueries(updatedQueries);
+      
+      toast({
+        title: "Query Deleted",
+        description: "The query has been removed from your history.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
-  }, []);
+  };
+
+  const clearAllQueries = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { error } = await supabase
+        .from('farmer_queries')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setQueries([]);
+      toast({
+        title: "History Cleared",
+        description: "All queries have been removed from your history.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Remove the sample queries section and the related useEffect
+  // This is no longer needed since we're using Supabase
 
   const categories = ["all", "Pest Control", "Irrigation", "Fertilization", "Disease Management", "Planting & Harvesting", "Equipment", "Soil Management", "Weather & Climate", "General"];
 
@@ -193,14 +210,14 @@ const QueryHistory = () => {
                         <Badge variant="outline" className="border-primary/30 text-primary">
                           {query.category}
                         </Badge>
-                        {query.cropType && (
+                        {query.crop_type && (
                           <Badge variant="outline" className="border-accent/30 text-accent">
-                            {query.cropType}
+                            {query.crop_type}
                           </Badge>
                         )}
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          {new Date(query.timestamp).toLocaleDateString()}
+                          {new Date(query.created_at).toLocaleDateString()}
                         </div>
                       </div>
                     </div>

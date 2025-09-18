@@ -7,29 +7,26 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User, MapPin, Sprout, Save, BarChart3, MessageCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserProfile {
-  name: string;
-  email: string;
-  location: string;
-  farmSize: string;
-  primaryCrops: string;
-  farmingExperience: string;
-  farmingType: string;
-  bio: string;
+  full_name: string;
+  farm_location: string;
+  farm_size: string;
+  primary_crops: string[];
+  farming_experience: string;
+  phone_number: string;
 }
 
 const Profile = () => {
   const [profile, setProfile] = useState<UserProfile>({
-    name: "John Smith",
-    email: "john.smith@email.com",
-    location: "Iowa, USA",
-    farmSize: "500",
-    primaryCrops: "Corn, Soybeans",
-    farmingExperience: "15",
-    farmingType: "conventional",
-    bio: "Third-generation farmer focused on sustainable corn and soybean production. Always looking to learn new techniques and improve crop yields."
+    full_name: "",
+    farm_location: "",
+    farm_size: "",
+    primary_crops: [],
+    farming_experience: "",
+    phone_number: ""
   });
   
   const [stats, setStats] = useState({
@@ -41,40 +38,91 @@ const Profile = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Load profile from localStorage
-    const savedProfile = localStorage.getItem("userProfile");
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile));
-    }
-
-    // Calculate stats from queries
-    const queries = JSON.parse(localStorage.getItem("farmerQueries") || "[]");
-    const categoryCount: { [key: string]: number } = {};
-    
-    queries.forEach((query: any) => {
-      categoryCount[query.category] = (categoryCount[query.category] || 0) + 1;
-    });
-
-    const favoriteCategory = Object.keys(categoryCount).reduce((a, b) => 
-      categoryCount[a] > categoryCount[b] ? a : b, "General"
-    );
-
-    setStats({
-      totalQueries: queries.length,
-      resolvedQueries: queries.filter((q: any) => q.status === "resolved").length,
-      favoriteCategory: categoryCount[favoriteCategory] ? favoriteCategory : "General"
-    });
+    loadProfile();
+    loadStats();
   }, []);
 
-  const handleSave = () => {
-    localStorage.setItem("userProfile", JSON.stringify(profile));
-    toast({
-      title: "Profile Saved",
-      description: "Your profile has been updated successfully.",
-    });
+  const loadProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        throw error;
+      }
+
+      if (data) {
+        setProfile(data);
+      }
+    } catch (error: any) {
+      console.error('Error loading profile:', error);
+    }
   };
 
-  const handleInputChange = (field: keyof UserProfile, value: string) => {
+  const loadStats = async () => {
+    try {
+      const { data: queries, error } = await supabase
+        .from('farmer_queries')
+        .select('*');
+
+      if (error) throw error;
+
+      const categoryCount: { [key: string]: number } = {};
+      
+      queries?.forEach((query: any) => {
+        categoryCount[query.category] = (categoryCount[query.category] || 0) + 1;
+      });
+
+      const favoriteCategory = Object.keys(categoryCount).reduce((a, b) => 
+        categoryCount[a] > categoryCount[b] ? a : b, "General"
+      );
+
+      setStats({
+        totalQueries: queries?.length || 0,
+        resolvedQueries: queries?.filter((q: any) => q.status === "completed").length || 0,
+        favoriteCategory: categoryCount[favoriteCategory] ? favoriteCategory : "General"
+      });
+    } catch (error: any) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { error } = await supabase
+        .from('profiles')
+        .upsert([
+          {
+            user_id: user.id,
+            ...profile
+          }
+        ]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Profile Saved",
+        description: "Your profile has been updated successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleInputChange = (field: keyof UserProfile, value: string | string[]) => {
     setProfile(prev => ({ ...prev, [field]: value }));
   };
 
@@ -105,31 +153,31 @@ const Profile = () => {
               <CardContent className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
+                    <Label htmlFor="name">Full Name</Label>
                     <Input
                       id="name"
-                      value={profile.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      value={profile.full_name}
+                      onChange={(e) => handleInputChange("full_name", e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="phone">Phone Number</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      value={profile.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
+                      id="phone"
+                      type="tel"
+                      value={profile.phone_number}
+                      onChange={(e) => handleInputChange("phone_number", e.target.value)}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
+                  <Label htmlFor="location">Farm Location</Label>
                   <Input
                     id="location"
                     placeholder="e.g., Iowa, USA"
-                    value={profile.location}
-                    onChange={(e) => handleInputChange("location", e.target.value)}
+                    value={profile.farm_location}
+                    onChange={(e) => handleInputChange("farm_location", e.target.value)}
                   />
                 </div>
 
@@ -140,8 +188,8 @@ const Profile = () => {
                       id="farmSize"
                       type="number"
                       placeholder="e.g., 500"
-                      value={profile.farmSize}
-                      onChange={(e) => handleInputChange("farmSize", e.target.value)}
+                      value={profile.farm_size}
+                      onChange={(e) => handleInputChange("farm_size", e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -150,46 +198,19 @@ const Profile = () => {
                       id="farmingExperience"
                       type="number"
                       placeholder="e.g., 15"
-                      value={profile.farmingExperience}
-                      onChange={(e) => handleInputChange("farmingExperience", e.target.value)}
+                      value={profile.farming_experience}
+                      onChange={(e) => handleInputChange("farming_experience", e.target.value)}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="primaryCrops">Primary Crops</Label>
+                  <Label htmlFor="primaryCrops">Primary Crops (comma-separated)</Label>
                   <Input
                     id="primaryCrops"
                     placeholder="e.g., Corn, Soybeans, Wheat"
-                    value={profile.primaryCrops}
-                    onChange={(e) => handleInputChange("primaryCrops", e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="farmingType">Farming Type</Label>
-                  <Select value={profile.farmingType} onValueChange={(value) => handleInputChange("farmingType", value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="conventional">Conventional</SelectItem>
-                      <SelectItem value="organic">Organic</SelectItem>
-                      <SelectItem value="sustainable">Sustainable</SelectItem>
-                      <SelectItem value="regenerative">Regenerative</SelectItem>
-                      <SelectItem value="mixed">Mixed Methods</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea
-                    id="bio"
-                    placeholder="Tell us about your farming background and interests..."
-                    value={profile.bio}
-                    onChange={(e) => handleInputChange("bio", e.target.value)}
-                    className="min-h-24"
+                    value={profile.primary_crops.join(', ')}
+                    onChange={(e) => handleInputChange("primary_crops", e.target.value.split(',').map(crop => crop.trim()))}
                   />
                 </div>
 
@@ -252,17 +273,14 @@ const Profile = () => {
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{profile.location}</span>
+                  <span className="text-sm">{profile.farm_location || "Location not set"}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Sprout className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{profile.primaryCrops}</span>
+                  <span className="text-sm">{profile.primary_crops.join(', ') || "Crops not set"}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {profile.farmSize} acres • {profile.farmingExperience} years experience
-                </div>
-                <div className="text-sm text-muted-foreground capitalize">
-                  {profile.farmingType} farming
+                  {profile.farm_size ? `${profile.farm_size} acres` : "Farm size not set"} • {profile.farming_experience ? `${profile.farming_experience} years experience` : "Experience not set"}
                 </div>
               </CardContent>
             </Card>
