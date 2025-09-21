@@ -1,14 +1,17 @@
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Wheat, Bug, Droplets, Sun, Leaf, Camera, Mic, MicOff, X } from "lucide-react";
+import { Send, Wheat, Bug, Droplets, Sun, Leaf, Camera, Mic, MicOff, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { supabase } from "@/integrations/supabase/client";
+import { useDemoMode } from "@/contexts/DemoContext";
 
 const QuerySection = () => {
   const [query, setQuery] = useState("");
@@ -16,11 +19,14 @@ const QuerySection = () => {
   const [category, setCategory] = useState("");
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
   const { t } = useLanguage();
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
+  const navigate = useNavigate();
+  const { isDemoMode, demoUserId } = useDemoMode();
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,7 +82,7 @@ const QuerySection = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!query.trim()) {
@@ -88,21 +94,95 @@ const QuerySection = () => {
       return;
     }
 
-    // Simulate AI response
-    toast({
-      title: t("querySubmitted"),
-      description: t("aiAnalyzing"),
-    });
+    setIsSubmitting(true);
 
-    // Clear form
-    setQuery("");
-    setCropType("");
-    setCategory("");
-    setUploadedImage(null);
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    try {
+      let userId: string;
+      
+      if (isDemoMode) {
+        userId = demoUserId;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+        userId = user.id;
+      }
+
+      // Generate AI response (mock implementation)
+      const response = generateMockResponse(query, category, cropType);
+
+      const { data, error } = await supabase
+        .from('farmer_queries')
+        .insert([
+          {
+            user_id: userId,
+            question: query.trim(),
+            category: category || "General",
+            crop_type: cropType || null,
+            response,
+            status: 'completed'
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: t("querySubmitted"),
+        description: t("aiAnalyzing"),
+      });
+
+      // Clear form
+      setQuery("");
+      setCropType("");
+      setCategory("");
+      setUploadedImage(null);
+      setImagePreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      // Redirect to results page
+      setTimeout(() => {
+        navigate(`/results/${data.id}`);
+      }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const generateMockResponse = (question: string, category: string, crop: string) => {
+    // Intelligent mock responses based on keywords
+    const lowercaseQ = question.toLowerCase();
+    
+    if (lowercaseQ.includes("pest") || lowercaseQ.includes("bug") || lowercaseQ.includes("insect")) {
+      return `For pest management in ${crop || 'your crop'}, I recommend an integrated approach: 1) Regular monitoring using yellow sticky traps, 2) Biological control with beneficial insects like ladybugs or parasitic wasps, 3) Neem oil application (2-3ml per liter) during early morning hours, 4) Companion planting with marigolds or nasturtiums to naturally repel pests. Avoid broad-spectrum pesticides that harm beneficial insects. Monitor weekly and act early when pest populations are detected.`;
+    }
+    
+    if (lowercaseQ.includes("water") || lowercaseQ.includes("irrigat") || lowercaseQ.includes("drought")) {
+      return `Optimal irrigation for ${crop || 'your crop'} requires monitoring soil moisture at root zone depth (15-30cm). Water when soil reaches 50-60% field capacity. Use drip irrigation for 80% efficiency vs 40% for flood irrigation. During flowering/fruiting stages, maintain consistent moisture - avoid water stress. Install moisture sensors for precise monitoring. Water early morning (5-8 AM) to reduce evaporation and disease risk.`;
+    }
+    
+    if (lowercaseQ.includes("disease") || lowercaseQ.includes("fungus") || lowercaseQ.includes("rot")) {
+      return `Disease prevention is key for ${crop || 'your crop'}. Ensure proper air circulation with adequate plant spacing. Apply preventive fungicide sprays containing copper or sulfur before disease onset. Remove infected plant debris immediately. Practice crop rotation to break disease cycles. Avoid overhead watering which promotes fungal growth. Use resistant varieties when available. For treatment, apply systemic fungicides containing propiconazole or tebuconazole as directed.`;
+    }
+    
+    if (lowercaseQ.includes("fertiliz") || lowercaseQ.includes("nutri") || lowercaseQ.includes("npk")) {
+      return `For balanced nutrition in ${crop || 'your crop'}, conduct soil testing first to determine nutrient needs. Generally apply NPK in ratio 4:2:1 for vegetative growth, 2:3:2 for flowering/fruiting. Organic options include compost (5-10 tons/hectare), vermicompost, and green manures. Split nitrogen applications - 50% at planting, 25% at vegetative stage, 25% at flowering. Supplement with micronutrients like zinc, boron, and iron based on soil test results.`;
+    }
+    
+    if (lowercaseQ.includes("plant") || lowercaseQ.includes("seed") || lowercaseQ.includes("sow")) {
+      return `For optimal planting of ${crop || 'your crop'}, consider your local climate and season. Plant seeds at 2-3 times their diameter depth. Ensure soil temperature is appropriate (varies by crop - generally 15-25°C for most crops). Space plants according to mature size requirements. Use quality certified seeds with high germination rates. Prepare soil with organic matter 2-3 weeks before planting. Monitor soil moisture - keep consistently moist but not waterlogged during germination.`;
+    }
+    
+    // Default general response
+    return `Thank you for your question about ${crop || 'farming'}. Based on agricultural best practices, I recommend: 1) Regular field monitoring to catch issues early, 2) Maintaining detailed records of your farming activities, 3) Consulting with local agricultural extension services for region-specific advice, 4) Implementing integrated management practices combining organic and scientific methods, 5) Staying updated on latest farming techniques and climate patterns. For specific treatment recommendations, please provide more details about your current situation and local growing conditions.`;
   };
 
   const quickQuestions = [
@@ -252,9 +332,23 @@ const QuerySection = () => {
                       </div>
                     )}
 
-                    <Button type="submit" size="lg" className="w-full bg-gradient-primary hover:opacity-90">
-                      <Send className="mr-2 h-5 w-5" />
-                      {t("getAIAssistance")}
+                    <Button 
+                      type="submit" 
+                      size="lg" 
+                      className="w-full bg-gradient-primary hover:opacity-90"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Processing Question...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-5 w-5" />
+                          {t("getAIAssistance")}
+                        </>
+                      )}
                     </Button>
                   </form>
                 </CardContent>
