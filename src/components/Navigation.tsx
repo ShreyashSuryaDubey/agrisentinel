@@ -3,10 +3,13 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Sprout, MessageCircle, History, User, Home, LogOut } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 const Navigation = () => {
   const location = useLocation();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const handleSignOut = async () => {
     try {
@@ -25,10 +28,10 @@ const Navigation = () => {
   };
 
   const navItems = [
-    { to: "/", icon: <Home className="h-4 w-4" />, label: "Home" },
-    { to: "/ask", icon: <MessageCircle className="h-4 w-4" />, label: "Ask Question" },
-    { to: "/history", icon: <History className="h-4 w-4" />, label: "My Queries" },
-    { to: "/profile", icon: <User className="h-4 w-4" />, label: "Profile" },
+    { to: "/", icon: <Home className="h-4 w-4" />, label: t("home") },
+    { to: "/ask", icon: <MessageCircle className="h-4 w-4" />, label: t("askQuestion") },
+    { to: "/history", icon: <History className="h-4 w-4" />, label: t("queryHistory") },
+    { to: "/profile", icon: <User className="h-4 w-4" />, label: t("profile") },
   ];
 
   return (
@@ -54,6 +57,9 @@ const Navigation = () => {
                 </Link>
               </Button>
             ))}
+            <div className="hidden md:block ml-2">
+              <LanguageSwitcher />
+            </div>
             <Button variant="ghost" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground ml-2">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Sign Out</span>
