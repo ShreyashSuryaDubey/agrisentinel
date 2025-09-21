@@ -26,13 +26,54 @@ const Auth = ({ onAuthChange }: AuthProps) => {
       const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
       });
 
       if (error) throw error;
 
       toast({
-        title: "Check your email!",
-        description: "We've sent you a confirmation link.",
+        title: "Account created!",
+        description: "You can now sign in with your credentials.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    setEmail("demo@agrisentinel.com");
+    setPassword("demo123456");
+    
+    try {
+      // Try to sign up first, then sign in
+      await supabase.auth.signUp({
+        email: "demo@agrisentinel.com",
+        password: "demo123456",
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+      
+      // Sign in immediately
+      const { error } = await supabase.auth.signInWithPassword({
+        email: "demo@agrisentinel.com",
+        password: "demo123456",
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Welcome to the demo!",
+        description: "You're now signed in with demo credentials.",
       });
     } catch (error: any) {
       toast({
@@ -84,6 +125,27 @@ const Auth = ({ onAuthChange }: AuthProps) => {
           </p>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <Button
+              onClick={handleDemoLogin}
+              variant="outline"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Setting up demo...
+                </>
+              ) : (
+                "Try Demo (Quick Access)"
+              )}
+            </Button>
+            <div className="text-center text-sm text-muted-foreground mt-2 mb-4">
+              or use your own account
+            </div>
+          </div>
+          
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
