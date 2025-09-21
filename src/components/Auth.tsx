@@ -50,26 +50,36 @@ const Auth = ({ onAuthChange }: AuthProps) => {
 
   const handleDemoLogin = async () => {
     setLoading(true);
-    setEmail("demo@agrisentinel.com");
-    setPassword("demo123456");
     
     try {
-      // Try to sign up first, then sign in
-      await supabase.auth.signUp({
-        email: "demo@agrisentinel.com",
-        password: "demo123456",
-        options: {
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
-      
-      // Sign in immediately
-      const { error } = await supabase.auth.signInWithPassword({
+      // Try to sign in with existing demo account first
+      let { error } = await supabase.auth.signInWithPassword({
         email: "demo@agrisentinel.com",
         password: "demo123456",
       });
 
-      if (error) throw error;
+      // If user doesn't exist, create them
+      if (error?.message?.includes('Invalid login credentials')) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: "demo@agrisentinel.com",
+          password: "demo123456",
+          options: {
+            emailRedirectTo: `${window.location.origin}/`
+          }
+        });
+
+        if (signUpError) throw signUpError;
+
+        // Try to sign in again after signup
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: "demo@agrisentinel.com",
+          password: "demo123456",
+        });
+
+        if (signInError) throw signInError;
+      } else if (error) {
+        throw error;
+      }
 
       toast({
         title: "Welcome to the demo!",
@@ -77,13 +87,23 @@ const Auth = ({ onAuthChange }: AuthProps) => {
       });
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Demo Access Issue",
+        description: "Please disable email confirmation in Supabase settings or try creating your own account.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSkipAuth = () => {
+    // Create a temporary user session for demo purposes
+    const demoUser = {
+      id: 'demo-user-123',
+      email: 'demo@agrisentinel.com',
+      user_metadata: { name: 'Demo User' }
+    };
+    onAuthChange?.(demoUser);
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -125,7 +145,7 @@ const Auth = ({ onAuthChange }: AuthProps) => {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
+          <div className="mb-4 space-y-2">
             <Button
               onClick={handleDemoLogin}
               variant="outline"
@@ -138,9 +158,18 @@ const Auth = ({ onAuthChange }: AuthProps) => {
                   Setting up demo...
                 </>
               ) : (
-                "Try Demo (Quick Access)"
+                "Try Demo Login"
               )}
             </Button>
+            
+            <Button
+              onClick={handleSkipAuth}
+              variant="secondary"
+              className="w-full"
+            >
+              Skip Auth (Demo Mode)
+            </Button>
+            
             <div className="text-center text-sm text-muted-foreground mt-2 mb-4">
               or use your own account
             </div>
