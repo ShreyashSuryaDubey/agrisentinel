@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Auth from "@/components/Auth";
+import { DemoProvider } from "@/contexts/DemoContext";
 import Index from "./pages/Index";
 import AskQuestion from "./pages/AskQuestion";
 import QueryResults from "./pages/QueryResults";
@@ -53,21 +54,23 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/ask" element={<AskQuestion />} />
-            <Route path="/results/:id" element={<QueryResults />} />
-            <Route path="/history" element={<QueryHistory />} />
-            <Route path="/profile" element={<Profile />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <DemoProvider user={user}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/ask" element={<AskQuestion />} />
+              <Route path="/results/:id" element={<QueryResults />} />
+              <Route path="/history" element={<QueryHistory />} />
+              <Route path="/profile" element={<Profile />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </DemoProvider>
     </QueryClientProvider>
   );
 };

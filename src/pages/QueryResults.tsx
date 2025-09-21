@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, ArrowLeft, Share2, Copy, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDemoMode } from "@/contexts/DemoContext";
 
 interface QueryData {
   id: string;
@@ -22,6 +23,7 @@ const QueryResults = () => {
   const { id } = useParams();
   const [queryData, setQueryData] = useState<QueryData | null>(null);
   const { toast } = useToast();
+  const { isDemoMode, demoUserId } = useDemoMode();
 
   useEffect(() => {
     const fetchQuery = async () => {

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { User, MapPin, Sprout, Save, BarChart3, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDemoMode } from "@/contexts/DemoContext";
 
 interface UserProfile {
   full_name: string;
@@ -36,6 +37,7 @@ const Profile = () => {
   });
 
   const { toast } = useToast();
+  const { isDemoMode, demoUserId } = useDemoMode();
 
   useEffect(() => {
     loadProfile();
@@ -44,13 +46,20 @@ const Profile = () => {
 
   const loadProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      let userId: string;
+      
+      if (isDemoMode) {
+        userId = demoUserId;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        userId = user.id;
+      }
 
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
@@ -67,9 +76,15 @@ const Profile = () => {
 
   const loadStats = async () => {
     try {
-      const { data: queries, error } = await supabase
+      let query = supabase
         .from('farmer_queries')
         .select('*');
+
+      if (isDemoMode) {
+        query = query.eq('user_id', demoUserId);
+      }
+
+      const { data: queries, error } = await query;
 
       if (error) throw error;
 
@@ -95,14 +110,21 @@ const Profile = () => {
 
   const handleSave = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      let userId: string;
+      
+      if (isDemoMode) {
+        userId = demoUserId;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+        userId = user.id;
+      }
 
       const { error } = await supabase
         .from('profiles')
         .upsert([
           {
-            user_id: user.id,
+            user_id: userId,
             ...profile
           }
         ]);

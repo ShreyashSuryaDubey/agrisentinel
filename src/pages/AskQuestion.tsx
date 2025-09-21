@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, Wheat, Bug, Droplets, Sun, Leaf, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDemoMode } from "@/contexts/DemoContext";
 
 const AskQuestion = () => {
   const [query, setQuery] = useState("");
@@ -17,6 +18,7 @@ const AskQuestion = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isDemoMode, demoUserId } = useDemoMode();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,8 +35,15 @@ const AskQuestion = () => {
     setIsSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      let userId: string;
+      
+      if (isDemoMode) {
+        userId = demoUserId;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+        userId = user.id;
+      }
 
       // Generate AI response (mock implementation)
       const response = generateMockResponse(query, category, cropType);
@@ -43,7 +52,7 @@ const AskQuestion = () => {
         .from('farmer_queries')
         .insert([
           {
-            user_id: user.id,
+            user_id: userId,
             question: query.trim(),
             category: category || "General",
             crop_type: cropType || null,

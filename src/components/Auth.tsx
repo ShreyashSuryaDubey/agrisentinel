@@ -97,11 +97,20 @@ const Auth = ({ onAuthChange }: AuthProps) => {
   };
 
   const handleSkipAuth = () => {
-    // Create a temporary user session for demo purposes
+    // Create a demo user session with the special demo UUID
     const demoUser = {
-      id: 'demo-user-123',
+      id: '00000000-0000-0000-0000-000000000000',
       email: 'demo@agrisentinel.com',
-      user_metadata: { name: 'Demo User' }
+      user_metadata: { 
+        name: 'Demo Farmer',
+        full_name: 'Demo Farmer'
+      },
+      app_metadata: {},
+      aud: 'authenticated',
+      role: 'authenticated',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_demo: true
     };
     onAuthChange?.(demoUser);
   };

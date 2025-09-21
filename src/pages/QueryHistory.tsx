@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle2, Search, MessageCircle, Calendar, Filter, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDemoMode } from "@/contexts/DemoContext";
 
 interface QueryData {
   id: string;
@@ -26,6 +27,7 @@ const QueryHistory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const { toast } = useToast();
+  const { isDemoMode, demoUserId } = useDemoMode();
 
   useEffect(() => {
     loadQueries();
@@ -37,10 +39,16 @@ const QueryHistory = () => {
 
   const loadQueries = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('farmer_queries')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (isDemoMode) {
+        query = query.eq('user_id', demoUserId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setQueries(data || []);
@@ -94,13 +102,20 @@ const QueryHistory = () => {
 
   const clearAllQueries = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      let userId: string;
+      
+      if (isDemoMode) {
+        userId = demoUserId;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+        userId = user.id;
+      }
 
       const { error } = await supabase
         .from('farmer_queries')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
